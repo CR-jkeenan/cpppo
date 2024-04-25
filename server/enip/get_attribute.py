@@ -541,6 +541,10 @@ class proxy( object ):
                 try:
                     # The attribute description is either a plain Tag, an (address, type), or an
                     # (address, type, description)
+                    override = None
+                    if len(a) > 2:
+                        override = a[2]
+                        a = a[:2]
                     if cpppo.is_listlike( a ):
                         att,typ,uni = a if len( a ) == 3 else a+(None,)
                     else:
@@ -553,6 +557,8 @@ class proxy( object ):
                     opp,	= parser( ( att, ), route_path=device.parse_route_path( self.route_path ),
                                           send_path=self.send_path, priority_time_tick=self.priority_time_tick,
                                           timeout_ticks=self.timeout_ticks )
+                    if override is not None:
+                        opp['method'] = override
                 except Exception as exc:
                     log.warning( "Failed to parse attribute %r; %s", a, exc )
                     raise
@@ -569,7 +575,6 @@ class proxy( object ):
                     if hasattr( t, 'tag_type' ):
                         opp['tag_type'] = t.tag_type
 
-                log.detail( "Parsed attribute %r (type %r) into operation: %r", att, typ, opp )
                 yield opp,(att,typ,uni)
 
         def types_decode( types ):
@@ -597,7 +602,7 @@ class proxy( object ):
         # Get duplicate streams; one to feed the the enip.client's connector.operate, and one for
         # post-processing based on the declared type(s).
         operations,attrtypes	= itertools.tee( opp__att_typ_uni( attributes ))
-
+        log.debug( "Operations: %r", operations)
         # Process all requests w/ the specified pipeline depth, Multiple Service Packet
         # configuration.  The 'idx' is the EtherNet/IP CIP request packet index; 'i' is the
         # individual I/O request index (for indexing att/typ/operations).
@@ -608,13 +613,13 @@ class proxy( object ):
         # 
         # assert not self.gateway.frame.lock.locked(), \
         #     "Attempting recursive read on %r" % ( self.gateway.frame, )
-        log.info( "Acquiring gateway %r connection: %s", self.gateway,
+        log.debug( "Acquiring gateway %r connection: %s", self.gateway,
                   "locked" if self.gateway.frame.lock.locked() else "available" )
         blocked			= cpppo.timer()
         with self.gateway as connection: # waits 'til any Thread's txn. completes
           polling		= cpppo.timer()
           try:
-            log.info( "Operating gateway %r connection, after blocking %7.3fs", self.gateway, polling - blocked )
+            log.debug( "Operating gateway %r connection, after blocking %7.3fs", self.gateway, polling - blocked )
             for i,(idx,dsc,req,rpy,sts,val) in enumerate( connection.operate(
                     ( opr for opr,_ in operations ),
                     depth=self.depth, multiple=self.multiple, timeout=self.timeout )):

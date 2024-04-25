@@ -935,6 +935,16 @@ class Object( object ):
     SA_SNG_REQ			= 0x10
     SA_SNG_RPY			= SA_SNG_REQ | 0x80
 
+    GA_ISDU_NAM			= "Read_ISDU"
+    GA_ISDU_CTX			= "get_isdu_single"
+    GA_ISDU_REQ			= 0x4B
+    GA_ISDU_RPY			= GA_ISDU_REQ | 0x80
+
+    SA_ISDU_NAM			= "Write_ISDU"
+    SA_ISDU_CTX			= "set_isdu_single"
+    SA_ISDU_REQ			= 0x4C
+    SA_ISDU_RPY			= SA_ISDU_REQ | 0x80
+
     SV_COD_NAM			= "Service Code"
     SV_COD_CTX			= "service_code"
 
@@ -1052,7 +1062,6 @@ class Object( object ):
             # channel should continue.
             data.status		= 0x08		# Service not supported, if not recognized or fail to access
             data.pop( 'status_ext', None )
-
             if ( data.get( 'service' ) == self.GA_SNG_REQ
                  or self.GA_SNG_CTX in data and data.setdefault( 'service', self.GA_SNG_REQ ) == self.GA_SNG_REQ ):
                 pass
@@ -1064,6 +1073,12 @@ class Object( object ):
                 pass
             elif ( data.get( 'service' ) == self.SA_SNG_REQ
                  or self.SA_SNG_CTX in data and data.setdefault( 'service', self.SA_SNG_REQ ) == self.SA_SNG_REQ ):
+                pass
+            elif ( data.get( 'service' ) == self.GA_ISDU_REQ
+                 or self.GA_ISDU_CTX in data and data.setdefault( 'service', self.GA_ISDU_REQ ) == self.GA_ISDU_REQ ):
+                pass
+            elif ( data.get( 'service' ) == self.SA_ISDU_REQ
+                 or self.SA_ISDU_CTX in data and data.setdefault( 'service', self.SA_ISDU_REQ ) == self.SA_ISDU_REQ ):
                 pass
             else:
                 raise RequestUnrecognized( "Unrecognized Service Request" )
@@ -1221,6 +1236,12 @@ class Object( object ):
             # Get Attribute Single
             result	       += USINT.produce(	data.service )
             result	       += EPATH.produce(	data.path )
+        elif cls.GA_ISDU_CTX in data and data.setdefault( 'service', cls.GA_ISDU_REQ ) == cls.GA_ISDU_REQ:
+            # Get ISDU Single
+            result	       += USINT.produce(	data.service )
+            result	       += EPATH.produce(	data.path )
+            result	       += typed_data.produce(	data.get_isdu_single,
+                                                        tag_type=USINT.tag_type )
         elif cls.GA_LST_CTX in data and data.setdefault( 'service', cls.GA_LST_REQ ) == cls.GA_LST_REQ:
             # Get Attribute List
             result	       += USINT.produce(	data.service )
@@ -1233,6 +1254,12 @@ class Object( object ):
             result	       += USINT.produce(	data.service )
             result	       += EPATH.produce(	data.path )
             result	       += typed_data.produce(	data.set_attribute_single,
+                                                        tag_type=USINT.tag_type )
+        elif cls.SA_ISDU_CTX in data and data.setdefault( 'service', cls.SA_ISDU_REQ ) == cls.SA_ISDU_REQ:
+            # Set ISDU Single
+            result	       += USINT.produce(	data.service )
+            result	       += EPATH.produce(	data.path )
+            result	       += typed_data.produce(	data.set_isdu_single,
                                                         tag_type=USINT.tag_type )
         elif data.get( 'service' ) == cls.GA_ALL_RPY:
             # Get Attributes All/List/Single Reply.
@@ -1383,6 +1410,9 @@ def __get_attribute_single():
 
 Object.register_service_parser( number=Object.GA_SNG_REQ, name=Object.GA_SNG_NAM,
                                 short=Object.GA_SNG_CTX, machine=__get_attribute_single() )
+# Object.register_service_parser( number=Object.GA_ISDU_REQ, name=Object.GA_ISDU_NAM,
+#                                 short=Object.GA_ISDU_CTX, machine=__get_attribute_single() )
+
 def __get_attribute_single_reply():
     srvc			= USINT(		 	context='service' )
     srvc[True]	 	= rsvd	= octets_drop(	'reserved',	repeat=1 )
@@ -1396,6 +1426,8 @@ def __get_attribute_single_reply():
 
 Object.register_service_parser( number=Object.GA_SNG_RPY, name=Object.GA_SNG_NAM + " Reply",
                                 short=Object.GA_SNG_CTX, machine=__get_attribute_single_reply() )
+# Object.register_service_parser( number=Object.GA_ISDU_RPY, name=Object.GA_ISDU_NAM + " Reply",
+#                                 short=Object.GA_ISDU_CTX, machine=__get_attribute_single_reply() )
 
 def __set_attribute_single():
     srvc			= USINT(		 	context='service' )
@@ -1408,6 +1440,12 @@ def __set_attribute_single():
 Object.register_service_parser( number=Object.SA_SNG_REQ, name=Object.SA_SNG_NAM,
                                 short=Object.SA_SNG_CTX, machine=__set_attribute_single() )
 
+Object.register_service_parser( number=Object.SA_ISDU_REQ, name=Object.SA_ISDU_NAM,
+                                short=Object.SA_ISDU_CTX, machine=__set_attribute_single() )
+
+Object.register_service_parser( number=Object.GA_ISDU_REQ, name=Object.GA_ISDU_NAM,
+                                short=Object.GA_ISDU_CTX, machine=__set_attribute_single() )
+
 def __set_attribute_single_reply():
     srvc			= USINT(		 	context='service' )
     srvc[True]	 	= rsvd	= octets_drop(	'reserved',	repeat=1 )
@@ -1419,6 +1457,21 @@ def __set_attribute_single_reply():
 
 Object.register_service_parser( number=Object.SA_SNG_RPY, name=Object.SA_SNG_NAM + " Reply",
                                 short=Object.SA_SNG_CTX, machine=__set_attribute_single_reply() )
+Object.register_service_parser( number=Object.SA_ISDU_RPY, name=Object.SA_ISDU_NAM + " Reply",
+                                short=Object.SA_ISDU_CTX, machine=__set_attribute_single_reply() )
+
+def __get_isdu_single_reply():
+    srvc			= USINT(		 	context='service' )
+    srvc[True]	 	= rsvd	= octets_drop(	'reserved',	repeat=1 )
+    rsvd[True]		= stts	= status()
+    stts[None]		= mark	= octets_noop(			context=Object.GA_ISDU_CTX,
+                                                terminal=True )
+    mark.initial[None]		= move_if( 	'mark',		initializer=True )
+    return srvc
+
+Object.register_service_parser( number=Object.GA_ISDU_RPY, name=Object.GA_ISDU_NAM + " Reply",
+                                short=Object.GA_ISDU_CTX, machine=__get_isdu_single_reply() )
+
 
 
 class Identity( Object ):

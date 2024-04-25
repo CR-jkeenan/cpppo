@@ -145,7 +145,7 @@ class Logix( Message_Router ):
 
     RD_TAG_NAM			= "Read Tag"
     RD_TAG_CTX			= "read_tag"
-    RD_TAG_REQ			= 0x4c
+    RD_TAG_REQ			= 0x51 # JK changed
     RD_TAG_RPY			= RD_TAG_REQ | 0x80
     RD_FRG_NAM			= "Read Tag Fragmented"
     RD_FRG_CTX			= "read_frag"

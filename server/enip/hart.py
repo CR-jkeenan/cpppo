@@ -157,7 +157,7 @@ class HART( Message_Router ):
     
     RD_STS_NAM			= "Read Additional Status"
     RD_STS_CTX			= "read_sts"
-    RD_STS_REQ			= 0x4C
+    RD_STS_REQ			= 0x51
     RD_STS_RPY			= RD_STS_REQ | 0x80
 
     RD_INF_NAM			= "Get Device Info"

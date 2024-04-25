@@ -905,6 +905,72 @@ class client( object ):
                 sender_context=sender_context, **kwds )
         return req
 
+    def get_isdu_single( self, path, data, elements=1, tag_type=None,
+              route_path=None, send_path=None, timeout=None, send=True,
+              sender_context=b'', **kwds ):
+        """Convert the supplied tag_type data into USINTs if necessary, and perform the Set isdu
+        Single.  If no/None tag_type supplied, the data is assumed to be SINT/USINT.
+
+        """
+        # If a tag_type has been specified, then we need to convert the data to SINT/USINT.
+        if elements is None:
+            elements		= len( data )
+        else:
+            assert elements == len( data ), \
+                "Inconsistent elements: %d doesn't match data length: %d" % ( elements, len( data ))
+        if tag_type not in (None,parser.SINT.tag_type,parser.USINT.tag_type):
+            usints		= [ v for v in bytearray(
+                parser.typed_data.produce( data={'tag_type': tag_type, 'data': data } )) ]
+            log.detail( "Converted %s[%d] to USINT[%d]",
+                        parser.typed_data.TYPES_SUPPORTED[tag_type], elements, len( usints ))
+            data,elements	= usints,len( usints )
+        req			= dotdict()
+        req.path		= { 'segment': [
+            dotdict( d ) for d in device.parse_path( path )
+        ]}
+        req.get_isdu_single= {
+            'data':		data,
+            'elements':		elements,
+        }
+        if send:
+            self.req_send(
+                request=req, route_path=route_path, send_path=send_path, timeout=timeout,
+                sender_context=sender_context, **kwds )
+        return req
+    
+    def set_isdu_single( self, path, data, elements=1, tag_type=None,
+              route_path=None, send_path=None, timeout=None, send=True,
+              sender_context=b'', **kwds ):
+        """Convert the supplied tag_type data into USINTs if necessary, and perform the Set isdu
+        Single.  If no/None tag_type supplied, the data is assumed to be SINT/USINT.
+
+        """
+        # If a tag_type has been specified, then we need to convert the data to SINT/USINT.
+        if elements is None:
+            elements		= len( data )
+        else:
+            assert elements == len( data ), \
+                "Inconsistent elements: %d doesn't match data length: %d" % ( elements, len( data ))
+        if tag_type not in (None,parser.SINT.tag_type,parser.USINT.tag_type):
+            usints		= [ v for v in bytearray(
+                parser.typed_data.produce( data={'tag_type': tag_type, 'data': data } )) ]
+            log.detail( "Converted %s[%d] to USINT[%d]",
+                        parser.typed_data.TYPES_SUPPORTED[tag_type], elements, len( usints ))
+            data,elements	= usints,len( usints )
+        req			= dotdict()
+        req.path		= { 'segment': [
+            dotdict( d ) for d in device.parse_path( path )
+        ]}
+        req.set_isdu_single= {
+            'data':		data,
+            'elements':		elements,
+        }
+        if send:
+            self.req_send(
+                request=req, route_path=route_path, send_path=send_path, timeout=timeout,
+                sender_context=sender_context, **kwds )
+        return req
+
     def read( self, path, elements=1, offset=0,
               route_path=None, send_path=None, timeout=None, send=True,
               data_size=None, tag_type=None, # for response data_size estimation
@@ -1071,7 +1137,7 @@ class client( object ):
             # request.input; if so, use it.
             us.request		= request
             try:
-                us.request.input= bytearray( dialect.produce( us.request )) # eg. logix.Logix
+                us.request.input= bytearray( dialect.produce( us.request ))
             except device.RequestUnrecognized:
                 if 'input' not in us.request:
                     raise # No request, and no already-produced serialization
@@ -1361,6 +1427,25 @@ class connector( client ):
                         tag_type=op.get( 'tag_type' ) or parser.DINT.tag_type, size=op.get( 'elements', 1 ))
                 else:
                     rpyest	= multiple # Completely unknown; prevent merging...
+            elif method == 'set_isdu_single':
+                descr	       += "Write_ISDU "
+                req		= self.set_isdu_single( timeout=timeout, send=not multiple, **op )
+                reqest		= 13 + parser.typed_data.datasize(
+                    tag_type=op.get( 'tag_type' ) or parser.USINT.tag_type, size=len( op['data'] ))
+                rpyest		= 4
+            elif method == 'get_isdu_single':
+                descr	       += "Read_ISDU "
+                req		= self.get_isdu_single( timeout=timeout, send=not multiple, **op )
+                reqest		= 12 + parser.typed_data.datasize(
+                    tag_type=op.get( 'tag_type' ) or parser.USINT.tag_type, size=len( op['data'] ))
+                rpyest		= 0
+                if op.get( 'data_size' ):
+                    rpyest     += op.get( 'data_size' )
+                elif op.get( 'tag_type' ): # a non-0/None tag_type defined; use it (assumes 1 element Attribute)
+                    rpyest     += parser.typed_data.datasize(
+                        tag_type=op.get( 'tag_type' ) or parser.DINT.tag_type, size=op.get( 'elements', 1 ))
+                else:
+                    rpyest	= multiple # Completely unknown; prevent merging...
             elif method == 'get_attributes_all':
                 descr	       += "G_A_A "
                 req		= self.get_attributes_all( timeout=timeout, send=not multiple, **op )
@@ -1401,8 +1486,8 @@ class connector( client ):
                     mul		= self.multiple( request=[r for d,o,r in requests], timeout=timeout,
                                                  sender_context=sender_context, **requests_paths )
                     elapsed	= misc.timer() - begun
-                    if log.isEnabledFor( logging.DETAIL ):
-                        log.detail( "Sent %7.3f/%7.3fs: %s (req: %d + %d or rpy: %d + %d >= %d): %s", elapsed,
+                    if True:
+                        log( "Sent %7.3f/%7.3fs: %s (req: %d + %d or rpy: %d + %d >= %d): %s", elapsed,
                                     misc.inf if timeout is None else timeout, "Multiple Service Packet",
                                     reqsiz, reqest, rpysiz, rpyest, multiple,
                                     parser.enip_format( mul ))
@@ -1505,7 +1590,10 @@ class connector( client ):
                     val		= reply.get_attributes_all.data
                 elif reply.status in (0x00,):
                     # eg. 'set_attribute_single', 'write_{tag,frag}', 'service_code', etc...
-                    val		= True
+                    if 'get_isdu_single' in reply:
+                        val = reply['input'][3:]
+                    else:
+                        val	= True
                 else:					# Failure; val is Falsey
                     if 'status_ext' in reply and reply.status_ext.size:
                         sts	= (reply.status,reply.status_ext.data)
@@ -2207,7 +2295,7 @@ which is required to carry this Send/Route Path data. """ )
                 remains		= timeout - ( elapsed or 0 )
                 reply,_		= await_response( connection, timeout=remains )
                 if reply:
-                    print( "%s %2d from %r: %s" % (
+                    log.debug( "%s %2d from %r: %s" % (
                         desc, counter, reply.peer, parser.enip_format( reply.get( path, reply ))))
                     counter    += 1
                 if not reply or not args.broadcast:
@@ -2239,7 +2327,6 @@ which is required to carry this Send/Route Path data. """ )
         for sortby in [ 'cumulative', 'time' ]:
             ps.sort_stats( sortby )
             ps.print_stats( 25 )
-        print( s.getvalue() )
 
     return 1 if failures else 0
 
