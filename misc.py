@@ -140,7 +140,7 @@ def change_function( function, **kwds ):
     type help(types.CodeType) at the interpreter prompt for information.
 
     """
-
+    return
     version_lookup = {
         (2, 7):  ["co_argcount", "co_nlocals", "co_stacksize", "co_flags", "co_code", "co_consts", "co_names", "co_varnames", "co_filename", "co_name", "co_firstlineno", "co_lnotab", "co_freevars", "co_cellvars"],
         (3, 7):  ["co_argcount", "co_kwonlyargcount", "co_nlocals", "co_stacksize", "co_flags", "co_code", "co_consts", "co_names", "co_varnames", "co_filename", "co_name", "co_firstlineno", "co_lnotab", "co_freevars", "co_cellvars"],
